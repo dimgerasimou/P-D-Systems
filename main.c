@@ -1,26 +1,24 @@
-#include <stdio.h>
-#include "mat_read.h"
+#include "io.h"
+
+const char *program_name = "pardisV0";
 
 int main(int argc, char *argv[]) {
 
+    CSCBinaryMatrix *matrix;
+
+    set_program_name(argv[0]);
+
     if (argc != 2) {
-        printf("%s: invalid arguments", argv[0]);
+        print_error(__func__, "invalid arguments", 0);
         return 1;
     }
-
-    SparseMatrix *sparse = load_sparse_array(argv[1], "Problem", "A");
-
-    if (!sparse) {
-        fprintf(stderr, "Failed to load sparse array\n");
+    
+    matrix = load_sparse_matrix(argv[1], "Problem", "A");
+    if (!matrix)
         return 1;
-    }
 
-    for (unsigned int i=0; i<sparse->ncol; i++){
-        for(unsigned int j= sparse->col_ptr[i]; j<sparse->col_ptr[i+1];j++) {
-            printf("(%5d,%d)  %.0lf\n",sparse->row_idx[j] + 1, i + 1, sparse->val[j]);
-        }
-    }
+    print_sparse_matrix(matrix);
 
-    free_sparse_matrix(sparse);
+    free_sparse_matrix(matrix);
     return 0;
 }

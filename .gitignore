@@ -1,3 +1,5 @@
 data/
-*.o
-print_mat
+.cache/
+compile_commands.json
+obj/
+pardis0

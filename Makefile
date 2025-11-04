@@ -1,29 +1,24 @@
-# --- Compiler settings ---
 CC = gcc
 CFLAGS = -Wall -Wextra -O2
-LIBS = -lmatio
+LIBS = -lmatio -lm
 
-# Αν το matio είναι εγκατεστημένο στο /usr/local
-# ξεκλείδωσε την επόμενη γραμμή:
-# CFLAGS += -I/usr/local/include
-# LDFLAGS += -L/usr/local/lib
+SRC = main.c io.c
+OBJ = $(patsubst %.c,obj/%.o,$(SRC))  # obj/main.o obj/io.o
+TARGET = pardis0
 
-# --- Files ---
-SRC = main.c read_mat.c
-OBJ = $(SRC:.c=.o)
-TARGET = print_mat
-
-# --- Rules ---
 all: $(TARGET)
 
+# Link step
 $(TARGET): $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) $(LIBS) -o $@
 
-%.o: %.c
+# Compile step
+obj/%.o: %.c | obj
 	$(CC) $(CFLAGS) -c $< -o $@
 
-run: $(TARGET)
-	./$(TARGET)
+# Ensure obj directory exists
+obj:
+	mkdir -p obj
 
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -rf obj $(TARGET)
