@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2
 LIBS = -lmatio -lm
 
-SRC = main.c io.c
+SRC = main.c io.c cc_union_find_like.c
 OBJ = $(patsubst %.c,obj/%.o,$(SRC))  # obj/main.o obj/io.o
 TARGET = pardis0
 

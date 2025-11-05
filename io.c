@@ -78,8 +78,8 @@ CSCBinaryMatrix *csc_load_matrix(const char *filename,
     m->row_idx = NULL;
     m->col_ptr = NULL;
 
-    m->row_idx = malloc(sizeof(size_t) * m->nnz);
-    m->col_ptr = malloc(sizeof(size_t) * m->ncols + 1);
+    m->row_idx = malloc(sizeof(uint32_t) * m->nnz);
+    m->col_ptr = malloc(sizeof(uint32_t) * m->ncols + 1);
 
     if (m->row_idx==NULL || m->col_ptr== NULL) {
         print_error(__func__, "malloc() failed", errno);
@@ -90,8 +90,8 @@ CSCBinaryMatrix *csc_load_matrix(const char *filename,
         return NULL;
     }
 
-    memcpy(m->row_idx, s->ir, m->nnz * sizeof(size_t));
-    memcpy(m->col_ptr, s->jc, (m->ncols + 1) * sizeof(size_t));
+    memcpy(m->row_idx, s->ir, m->nnz * sizeof(uint32_t));
+    memcpy(m->col_ptr, s->jc, (m->ncols + 1) * sizeof(uint32_t));
 
     Mat_VarFree(Problem);
     Mat_Close(matfp);
