@@ -270,18 +270,17 @@ tree:
 
 .PHONY: list-sources
 list-sources:
-	@$(ECHO) "$(COLOR_BLUE)Source files:$(COLOR_RESET)"
-	@$(ECHO) "$(COLOR_MAGENTA)Core:$(COLOR_RESET)"; \
-	for f in $(CORE_SRCS); do echo "  $f"; done
-	@$(ECHO) "$(COLOR_MAGENTA)Utils:$(COLOR_RESET)"; \
-	for f in $(UTILS_SRCS); do echo "  $f"; done
-	@$(ECHO) "$(COLOR_MAGENTA)Main:$(COLOR_RESET)"; \
-	echo "  $(MAIN_SRC)"
+	@$(ECHO) "$(COLOR_BLUE)Source files:$(COLOR_RESET)\n"
+	@$(ECHO) "$(COLOR_MAGENTA)Core:$(COLOR_RESET)"
+	@for f in $(CORE_SRCS); do [ -n "$$f" ] && echo "  $$f"; done
+	@$(ECHO) "$(COLOR_MAGENTA)Utils:$(COLOR_RESET)"
+	@for f in $(UTILS_SRCS); do [ -n "$$f" ] && echo "  $$f"; done
+	@$(ECHO) "$(COLOR_MAGENTA)Main:$(COLOR_RESET)"
+	@echo "  $(MAIN_SRC)"
 	@$(ECHO) "$(COLOR_MAGENTA)Algorithms:$(COLOR_RESET)"
-	@test -f $(SEQUENTIAL_ALGO) && echo "  $(SEQUENTIAL_ALGO)" || echo "  $(SEQUENTIAL_ALGO) (missing)"
-	@test -f $(OPENMP_ALGO) && echo "  $(OPENMP_ALGO)" || echo "  $(OPENMP_ALGO) (missing)"
-	@test -f $(PTHREADS_ALGO) && echo "  $(PTHREADS_ALGO)" || echo "  $(PTHREADS_ALGO) (missing)"
-	@test -f $(CILK_ALGO) && echo "  $(CILK_ALGO)" || echo "  $(CILK_ALGO) (missing)"
+	@for f in $(SEQUENTIAL_ALGO) $(OPENMP_ALGO) $(PTHREADS_ALGO) $(CILK_ALGO); do \
+		if [ -f "$$f" ]; then echo "  $$f"; else echo "  $$f (missing)"; fi; \
+	done
 
 .PHONY: info
 info:
@@ -319,13 +318,13 @@ info:
 
 .PHONY: list-binaries
 list-binaries:
-	@$(ECHO) "$(COLOR_BLUE)Built executables:$(COLOR_RESET)"
+	@$(ECHO) "$(COLOR_BLUE)Built executables:$(COLOR_RESET)\n"
 	@for bin in $(ALL_TARGETS); do \
-		if [ -f $bin ]; then \
-			$(ECHO) "  $(COLOR_GREEN)✓$(COLOR_RESET) $bin"; \
+		if [ -f "$$bin" ]; then \
+			$(ECHO) "  $(COLOR_GREEN)✓$(COLOR_RESET) $$bin"; \
 		else \
-			$(ECHO) "  $(COLOR_YELLOW)✗$(COLOR_RESET) $bin (not built)"; \
-		fi \
+			$(ECHO) "  $(COLOR_YELLOW)✗$(COLOR_RESET) $$bin (not built)"; \
+		fi; \
 	done
 
 .PHONY: check-deps

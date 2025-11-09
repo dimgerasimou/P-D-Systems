@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
+
 #include "connected_components.h"
 
 // Simplified find with path halving (more concurrent-friendly)
@@ -51,7 +52,7 @@ static int union_sets(uint32_t *label, uint32_t x, uint32_t y) {
     return 0;
 }
 
-int cc_count_parallel_cilk(const CSCBinaryMatrix *matrix) {
+int cc_count_parallel_cilk(const CSCBinaryMatrix *matrix, const int n_threads __attribute__((unused))) {
     if (!matrix || matrix->nrows == 0) return 0;
     
     uint32_t *label = (uint32_t*)malloc(sizeof(uint32_t) * matrix->nrows);
