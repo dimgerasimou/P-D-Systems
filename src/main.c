@@ -124,11 +124,13 @@ int main(int argc, char *argv[]) {
         return 1;
 
     #if defined(USE_OPENMP)
-    ret = benchmark_cc(cc_count_parallel_omp, matrix, n_threads, n_trials, IMPLEMENTATION_NAME);
+    ret = benchmark_cc(cc_openmp, matrix, n_threads, n_trials, IMPLEMENTATION_NAME);
     #elif defined(USE_PTHREADS)
+    ret = benchmark_cc(cc_pthreads, matrix, n_threads, n_trials, IMPLEMENTATION_NAME);
     #elif defined(USE_CILK)
+    ret = benchmark_cc(cc_cilk, matrix, n_threads, n_trials, IMPLEMENTATION_NAME);
     #elif defined(USE_SEQUENTIAL)
-    ret = benchmark_cc(cc_count_sequential, matrix, n_threads, n_trials, IMPLEMENTATION_NAME);
+    ret = benchmark_cc(cc_sequential, matrix, n_threads, n_trials, IMPLEMENTATION_NAME);
     #endif
 
     csc_free_matrix(matrix);

@@ -22,7 +22,7 @@ static int cmp_uint32(const void *a, const void *b) {
     return 0;
 }
 
-int cc_count_sequential(const CSCBinaryMatrix *matrix, const int n_threads __attribute__((unused))) {
+int cc_sequential(const CSCBinaryMatrix *matrix, const int n_threads __attribute__((unused))) {
 
     uint32_t *label=malloc(sizeof(uint32_t)*matrix->nrows);
     for(size_t i=0;i<matrix->nrows;i++){
