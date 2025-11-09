@@ -1,10 +1,12 @@
-#include <stdio.h>
-#include <time.h>
-#include <sys/time.h>
+#include "connected_components.h"
+#include "matrix.h"
+#include "error.h"
+#include "benchmark.h"
 
-#include "algorithms/connected_components.h"
-#include "core/matrix.h"
-#include "utils/error.h"
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #if defined(USE_OPENMP)
     #define IMPLEMENTATION_NAME "OpenMP"
@@ -20,53 +22,115 @@
 
 const char *program_name = "connected_components";
 
+static int
+isuint(const char *s)
+{
+    if (!s || s[0] == '\0')
+        return 0;
+
+    for (const char *ptr = s; *ptr != '\0'; ptr++) {
+        if (!(*ptr >= '0' && *ptr <= '9'))
+            return 0;
+    }
+
+    return 1;
+}
+
+static void
+usage(void) {
+    printf("./%s [-t n_threads] [-n n_trials] ./data_filepath\n", program_name);
+}
+
+static int parseargs(int argc, char *argv[], int *n_threads, int *n_trials, char **filepath) {
+    *n_threads = 0;
+    *n_trials = 1;
+    *filepath = NULL;
+
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-t")) {
+            if (i + 1 >= argc) {
+                print_error(__func__, "missing argument for -t", 0);
+                usage();
+                return 1;
+            }
+            i++;
+            if (!isuint(argv[i])) {
+                print_error(__func__, "invalid argument type for -t", 0);
+                usage();
+                return 1;
+            }
+            *n_threads = atoi(argv[i]);
+        }
+        else if (!strcmp(argv[i], "-n")) {
+            if (i + 1 >= argc) {
+                print_error(__func__, "missing argument for -n", 0);
+                usage();
+                return 1;
+            }
+            i++;
+            if (!isuint(argv[i])) {
+                print_error(__func__, "invalid argument type for -n", 0);
+                usage();
+                return 1;
+            }
+            *n_trials = atoi(argv[i]);
+        }
+        else if (!strcmp(argv[i], "-h")) {
+            usage();
+            return -1;
+        }
+        else {
+            if (*filepath != NULL) {
+                print_error(__func__, "multiple file paths specified", 0);
+                usage();
+                return 1;
+            }
+            if (access(argv[i], R_OK) != 0) {
+                char err[256];
+                snprintf(err, sizeof(err), "cannot access file: \"%s\"", argv[i]);
+                print_error(__func__, err, 0);
+                usage();
+                return 1;
+            }
+            *filepath = argv[i];
+        }
+    }
+
+    if (*filepath == NULL) {
+        print_error(__func__, "no input file specified", 0);
+        usage();
+        return 1;
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
 
     CSCBinaryMatrix *matrix;
+    char *filepath;
+    int n_trials = 1;
+    int n_threads = 0;
+    int ret = 0;
 
     set_program_name(argv[0]);
 
-    if (argc != 2) {
-        print_error(__func__, "invalid arguments", 0);
+    if (parseargs(argc, argv, &n_threads, &n_trials, &filepath)) {
         return 1;
     }
     
-    matrix = csc_load_matrix(argv[1], "Problem", "A");
+    matrix = csc_load_matrix(filepath, "Problem", "A");
     if (!matrix)
         return 1;
 
-  
-    clock_t start, end;
-    struct timeval s, e;
-    
-    const int retries = 100;
+    #if defined(USE_OPENMP)
+    ret = benchmark_cc(cc_count_parallel_omp, matrix, n_threads, n_trials, IMPLEMENTATION_NAME);
+    #elif defined(USE_PTHREADS)
+    #elif defined(USE_CILK)
+    #elif defined(USE_SEQUENTIAL)
+    ret = benchmark_cc(cc_count_sequential, matrix, n_threads, n_trials, IMPLEMENTATION_NAME);
+    #endif
 
-    double time = 0.0;
-    int cycles = 0;
-
-    int num_components = 0;
-
-    for (int i = 0; i < retries; i++) {
-
-        start = clock();
-        gettimeofday(&s, NULL);
-
-        #if defined(USE_OPENMP)
-        num_components = cc_count_parallel_omp(matrix);
-        #elif defined(USE_PTHREADS)
-        #elif defined(USE_CILK)
-        #elif defined(USE_SEQUENTIAL)
-        num_components = cc_count_sequential(matrix);
-        #endif
-
-        gettimeofday(&e, NULL);
-        end = clock();
-
-        time += (e.tv_sec - s.tv_sec) + 
-                (e.tv_usec - s.tv_usec) / 1e6;
-        cycles += ((double)(end-start));
-    }
-    printf("Number of connected components: %u, cycles: %d, average time needed %lf\n", num_components, cycles/retries,time/retries);
     csc_free_matrix(matrix);
-    return 0;
+    return ret;
 }
