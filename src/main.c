@@ -1,11 +1,22 @@
 #include <stdio.h>
 #include <time.h>
-#include <omp.h>
 #include <sys/time.h>
 
 #include "algorithms/connected_components.h"
 #include "core/matrix.h"
 #include "utils/error.h"
+
+#if defined(USE_OPENMP)
+    #define IMPLEMENTATION_NAME "OpenMP"
+#elif defined(USE_PTHREADS)
+    #define IMPLEMENTATION_NAME "Pthreads"
+#elif defined(USE_CILK)
+    #define IMPLEMENTATION_NAME "OpenCilk"
+#elif defined(USE_SEQUENTIAL)
+    #define IMPLEMENTATION_NAME "Sequential"
+#else
+    #error "No implementation selected! Define USE_SEQUENTIAL, USE_OPENMP, USE_PTHREADS, or USE_CILK"
+#endif
 
 const char *program_name = "connected_components";
 
@@ -25,65 +36,37 @@ int main(int argc, char *argv[]) {
         return 1;
 
   
-    printf("MAX THREADS:%d\n", omp_get_max_threads());
     clock_t start, end;
-    struct timeval startt, endt;
+    struct timeval s, e;
+    
+    const int retries = 100;
 
-    double elapsed_seq[10];
-    double elapsed_omp[10];
+    double time = 0.0;
+    int cycles = 0;
 
-    int cpu_cycles_used_omp[10];
-    int cpu_cycles_used_seq[10];
+    int num_components = 0;
 
-    int num_components_omp;
-    int num_components_seq;
-
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < retries; i++) {
 
         start = clock();
-        gettimeofday(&startt, NULL);
-        num_components_omp = cc_count_parallel_omp(matrix);
-        gettimeofday(&endt, NULL);
+        gettimeofday(&s, NULL);
+
+        #if defined(USE_OPENMP)
+        num_components = cc_count_parallel_omp(matrix);
+        #elif defined(USE_PTHREADS)
+        #elif defined(USE_CILK)
+        #elif defined(USE_SEQUENTIAL)
+        num_components = cc_count_sequential(matrix);
+        #endif
+
+        gettimeofday(&e, NULL);
         end = clock();
-        elapsed_omp[i] = (endt.tv_sec - startt.tv_sec) + 
-                         (endt.tv_usec - startt.tv_usec) / 1e6;
-        cpu_cycles_used_omp[i] = ((double)(end-start));
 
-        
-        
-        start = clock();
-        gettimeofday(&startt, NULL);
-        num_components_seq = cc_count_sequential(matrix);
-        gettimeofday(&endt, NULL);
-        end = clock();
-        elapsed_seq[i] = (endt.tv_sec - startt.tv_sec) + 
-                         (endt.tv_usec - startt.tv_usec) / 1e6;
-        cpu_cycles_used_seq[i] = ((double)(end-start));
-
-
+        time += (e.tv_sec - s.tv_sec) + 
+                (e.tv_usec - s.tv_usec) / 1e6;
+        cycles += ((double)(end-start));
     }
-
-    int avg_cpu_cycles_used_omp = 0 ;
-    int avg_cpu_cycles_used_seq = 0 ;
-    double avg_elapsed_omp = 0 ;
-    double avg_elapsed_seq = 0 ;
-
-    for(int i=0;i<10;i++){
-        avg_cpu_cycles_used_omp += cpu_cycles_used_omp[i];
-        avg_cpu_cycles_used_seq += cpu_cycles_used_seq[i];
-        avg_elapsed_omp += elapsed_omp[i];
-        avg_elapsed_seq += elapsed_seq[i];
-    }
-
-    avg_cpu_cycles_used_omp /= 10;
-    avg_cpu_cycles_used_seq /= 10;
-    avg_elapsed_omp /= 10;
-    avg_elapsed_seq /= 10;
-
-    printf("Number of connected components with seqential union-find: %d, average cycles needed: %d, average time needed %lf\n", num_components_seq, avg_cpu_cycles_used_seq, avg_elapsed_seq);
-
-    printf("Number of connected components with  parallel union-find: %u, time needed: %d, average time needed %lf\n", num_components_omp, avg_cpu_cycles_used_omp,avg_elapsed_omp);
-
+    printf("Number of connected components: %u, cycles: %d, average time needed %lf\n", num_components, cycles/retries,time/retries);
     csc_free_matrix(matrix);
     return 0;
 }

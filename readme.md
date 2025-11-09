@@ -4,11 +4,14 @@ Aristotle University of Thessaloniki
 
 ## Description
 
-In this repo is located the source code required for the first exercise of the lesson Parallel and Distributed Systems.
+In this repo is located the source code required for the first homework exercise of the course Parallel and Distributed Systems.
 
 ## Dependencies
 
 - libmatio
+- opencilk (check that opencilk's clang is the one found in path)
+- pthreads
+- openmp
 
 ## Execution
 

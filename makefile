@@ -9,17 +9,28 @@
 # Project Name
 PROJECT := connected_components
 
-# Compiler
+# Compilers
 CC := gcc
+CLANG := clang
 
-# Compiler flags
-CFLAGS := -Wall -Wextra -Wpedantic -std=c11 -O3 -march=native
-CFLAGS += -fopenmp
-CFLAGS += -Isrc/core -Isrc/algorithms -Isrc/utils
+# Base compiler flags
+BASE_CFLAGS := -Wall -Wextra -Wpedantic -std=c11 -O3 -march=native
+BASE_CFLAGS += -Isrc/core -Isrc/algorithms -Isrc/utils
+
+# Implementation-specific flags
+SEQUENTIAL_CFLAGS := $(BASE_CFLAGS) -DUSE_SEQUENTIAL
+OPENMP_CFLAGS := $(BASE_CFLAGS) -fopenmp -DUSE_OPENMP
+PTHREADS_CFLAGS := $(BASE_CFLAGS) -pthread -DUSE_PTHREADS
+CILK_CFLAGS := $(BASE_CFLAGS) -fopencilk -DUSE_CILK
 
 # Linker flags
-LDFLAGS := -fopenmp
-LDLIBS  := -lmatio -lm
+SEQUENTIAL_LDFLAGS :=
+OPENMP_LDFLAGS := -fopenmp
+PTHREADS_LDFLAGS := -pthread
+CILK_LDFLAGS := -fopencilk
+
+# Common libraries
+LDLIBS := -lmatio -lm
 
 # Directories
 SRC_DIR   := src
@@ -30,22 +41,43 @@ DEP_DIR   := $(BUILD_DIR)/deps
 
 # Source files
 CORE_SRCS := $(wildcard $(SRC_DIR)/core/*.c)
-ALGO_SRCS := $(wildcard $(SRC_DIR)/algorithms/*.c)
 UTILS_SRCS := $(wildcard $(SRC_DIR)/utils/*.c)
 MAIN_SRC := $(SRC_DIR)/main.c
-SRCS := $(CORE_SRCS) $(ALGO_SRCS) $(UTILS_SRCS) $(MAIN_SRC)
 
-# Object files
-OBJS := $(CORE_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o) \
-        $(ALGO_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o) \
-        $(UTILS_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o) \
-        $(MAIN_SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
+# Algorithm implementation files
+SEQUENTIAL_ALGO := $(SRC_DIR)/algorithms/cc_sequential.c
+OPENMP_ALGO := $(SRC_DIR)/algorithms/cc_openmp.c
+PTHREADS_ALGO := $(SRC_DIR)/algorithms/cc_pthreads.c
+CILK_ALGO := $(SRC_DIR)/algorithms/cc_cilk.c
 
-# Dependency files
-DEPS := $(OBJS:.o=.d)
+# Object files for each implementation
+SEQUENTIAL_OBJS := $(CORE_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/sequential/%.o) \
+                   $(UTILS_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/sequential/%.o) \
+                   $(MAIN_SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/sequential/%.o) \
+                   $(SEQUENTIAL_ALGO:$(SRC_DIR)/%.c=$(OBJ_DIR)/sequential/%.o)
 
-# Target executable
-TARGET := $(BIN_DIR)/$(PROJECT)
+OPENMP_OBJS := $(CORE_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/openmp/%.o) \
+               $(UTILS_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/openmp/%.o) \
+               $(MAIN_SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/openmp/%.o) \
+               $(OPENMP_ALGO:$(SRC_DIR)/%.c=$(OBJ_DIR)/openmp/%.o)
+
+PTHREADS_OBJS := $(CORE_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/pthreads/%.o) \
+                 $(UTILS_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/pthreads/%.o) \
+                 $(MAIN_SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/pthreads/%.o) \
+                 $(PTHREADS_ALGO:$(SRC_DIR)/%.c=$(OBJ_DIR)/pthreads/%.o)
+
+CILK_OBJS := $(CORE_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/cilk/%.o) \
+             $(UTILS_SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/cilk/%.o) \
+             $(MAIN_SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/cilk/%.o) \
+             $(CILK_ALGO:$(SRC_DIR)/%.c=$(OBJ_DIR)/cilk/%.o)
+
+# Target executables
+SEQUENTIAL_TARGET := $(BIN_DIR)/$(PROJECT)_sequential
+OPENMP_TARGET := $(BIN_DIR)/$(PROJECT)_openmp
+PTHREADS_TARGET := $(BIN_DIR)/$(PROJECT)_pthreads
+CILK_TARGET := $(BIN_DIR)/$(PROJECT)_cilk
+
+ALL_TARGETS := $(SEQUENTIAL_TARGET) $(OPENMP_TARGET) $(PTHREADS_TARGET) $(CILK_TARGET)
 
 # Pretty Output
 ECHO := /bin/echo -e
@@ -63,10 +95,28 @@ COLOR_CYAN := \033[1;36m
 $(BIN_DIR):
 	@mkdir -p $@
 
-$(OBJ_DIR) $(OBJ_DIR)/core $(OBJ_DIR)/algorithms $(OBJ_DIR)/utils:
+$(OBJ_DIR)/sequential $(OBJ_DIR)/sequential/core $(OBJ_DIR)/sequential/algorithms $(OBJ_DIR)/sequential/utils:
 	@mkdir -p $@
 
-$(DEP_DIR) $(DEP_DIR)/core $(DEP_DIR)/algorithms $(DEP_DIR)/utils:
+$(OBJ_DIR)/openmp $(OBJ_DIR)/openmp/core $(OBJ_DIR)/openmp/algorithms $(OBJ_DIR)/openmp/utils:
+	@mkdir -p $@
+
+$(OBJ_DIR)/pthreads $(OBJ_DIR)/pthreads/core $(OBJ_DIR)/pthreads/algorithms $(OBJ_DIR)/pthreads/utils:
+	@mkdir -p $@
+
+$(OBJ_DIR)/cilk $(OBJ_DIR)/cilk/core $(OBJ_DIR)/cilk/algorithms $(OBJ_DIR)/cilk/utils:
+	@mkdir -p $@
+
+$(DEP_DIR)/sequential $(DEP_DIR)/sequential/core $(DEP_DIR)/sequential/algorithms $(DEP_DIR)/sequential/utils:
+	@mkdir -p $@
+
+$(DEP_DIR)/openmp $(DEP_DIR)/openmp/core $(DEP_DIR)/openmp/algorithms $(DEP_DIR)/openmp/utils:
+	@mkdir -p $@
+
+$(DEP_DIR)/pthreads $(DEP_DIR)/pthreads/core $(DEP_DIR)/pthreads/algorithms $(DEP_DIR)/pthreads/utils:
+	@mkdir -p $@
+
+$(DEP_DIR)/cilk $(DEP_DIR)/cilk/core $(DEP_DIR)/cilk/algorithms $(DEP_DIR)/cilk/utils:
 	@mkdir -p $@
 
 # ============================================
@@ -74,33 +124,121 @@ $(DEP_DIR) $(DEP_DIR)/core $(DEP_DIR)/algorithms $(DEP_DIR)/utils:
 # ============================================
 
 .PHONY: all
-all: $(TARGET)
+all: $(ALL_TARGETS)
 
-# Link executable
-$(TARGET): $(OBJS) | $(BIN_DIR)
-	@$(ECHO) "$(COLOR_GREEN)Linking executable:$(COLOR_RESET) $@"
-	@$(CC) $(LDFLAGS) $(OBJS) $(LDLIBS) -o $@
-	@$(ECHO) "$(COLOR_GREEN)✓ Build successful!$(COLOR_RESET)"
+.PHONY: sequential
+sequential: $(SEQUENTIAL_TARGET)
 
-# Compile source files for each directory
-$(OBJ_DIR)/core/%.o: $(SRC_DIR)/core/%.c | $(OBJ_DIR)/core $(DEP_DIR)/core
-	@$(ECHO) "$(COLOR_BLUE)Compiling [core]:$(COLOR_RESET) $<"
-	@$(CC) $(CFLAGS) -MMD -MP -MF $(DEP_DIR)/core/$*.d -c $< -o $@
+.PHONY: openmp
+openmp: $(OPENMP_TARGET)
 
-$(OBJ_DIR)/algorithms/%.o: $(SRC_DIR)/algorithms/%.c | $(OBJ_DIR)/algorithms $(DEP_DIR)/algorithms
-	@$(ECHO) "$(COLOR_BLUE)Compiling [algo]:$(COLOR_RESET) $<"
-	@$(CC) $(CFLAGS) -MMD -MP -MF $(DEP_DIR)/algorithms/$*.d -c $< -o $@
+.PHONY: pthreads
+pthreads: $(PTHREADS_TARGET)
 
-$(OBJ_DIR)/utils/%.o: $(SRC_DIR)/utils/%.c | $(OBJ_DIR)/utils $(DEP_DIR)/utils
-	@$(ECHO) "$(COLOR_BLUE)Compiling [utils]:$(COLOR_RESET) $<"
-	@$(CC) $(CFLAGS) -MMD -MP -MF $(DEP_DIR)/utils/$*.d -c $< -o $@
+.PHONY: cilk
+cilk: $(CILK_TARGET)
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR) $(DEP_DIR)
-	@$(ECHO) "$(COLOR_BLUE)Compiling [main]:$(COLOR_RESET) $<"
-	@$(CC) $(CFLAGS) -MMD -MP -MF $(DEP_DIR)/$*.d -c $< -o $@
+# ============================================
+# Sequential Implementation
+# ============================================
 
-# Include dependency files (for changes tracking)
--include $(DEPS)
+$(SEQUENTIAL_TARGET): $(SEQUENTIAL_OBJS) | $(BIN_DIR)
+	@$(ECHO) "$(COLOR_GREEN)Linking [sequential]:$(COLOR_RESET) $@"
+	@$(CC) $(SEQUENTIAL_LDFLAGS) $(SEQUENTIAL_OBJS) $(LDLIBS) -o $@
+
+$(OBJ_DIR)/sequential/core/%.o: $(SRC_DIR)/core/%.c | $(OBJ_DIR)/sequential/core $(DEP_DIR)/sequential/core
+	@$(ECHO) "$(COLOR_BLUE)Compiling [sequential/core]:$(COLOR_RESET) $<"
+	@$(CC) $(SEQUENTIAL_CFLAGS) -MMD -MP -MF $(DEP_DIR)/sequential/core/$*.d -c $< -o $@
+
+$(OBJ_DIR)/sequential/algorithms/%.o: $(SRC_DIR)/algorithms/%.c | $(OBJ_DIR)/sequential/algorithms $(DEP_DIR)/sequential/algorithms
+	@$(ECHO) "$(COLOR_BLUE)Compiling [sequential/algo]:$(COLOR_RESET) $<"
+	@$(CC) $(SEQUENTIAL_CFLAGS) -MMD -MP -MF $(DEP_DIR)/sequential/algorithms/$*.d -c $< -o $@
+
+$(OBJ_DIR)/sequential/utils/%.o: $(SRC_DIR)/utils/%.c | $(OBJ_DIR)/sequential/utils $(DEP_DIR)/sequential/utils
+	@$(ECHO) "$(COLOR_BLUE)Compiling [sequential/utils]:$(COLOR_RESET) $<"
+	@$(CC) $(SEQUENTIAL_CFLAGS) -MMD -MP -MF $(DEP_DIR)/sequential/utils/$*.d -c $< -o $@
+
+$(OBJ_DIR)/sequential/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)/sequential $(DEP_DIR)/sequential
+	@$(ECHO) "$(COLOR_BLUE)Compiling [sequential/main]:$(COLOR_RESET) $<"
+	@$(CC) $(SEQUENTIAL_CFLAGS) -MMD -MP -MF $(DEP_DIR)/sequential/$*.d -c $< -o $@
+
+# ============================================
+# OpenMP Implementation
+# ============================================
+
+$(OPENMP_TARGET): $(OPENMP_OBJS) | $(BIN_DIR)
+	@$(ECHO) "$(COLOR_GREEN)Linking [openmp]:$(COLOR_RESET) $@"
+	@$(CC) $(OPENMP_LDFLAGS) $(OPENMP_OBJS) $(LDLIBS) -o $@
+
+$(OBJ_DIR)/openmp/core/%.o: $(SRC_DIR)/core/%.c | $(OBJ_DIR)/openmp/core $(DEP_DIR)/openmp/core
+	@$(ECHO) "$(COLOR_BLUE)Compiling [openmp/core]:$(COLOR_RESET) $<"
+	@$(CC) $(OPENMP_CFLAGS) -MMD -MP -MF $(DEP_DIR)/openmp/core/$*.d -c $< -o $@
+
+$(OBJ_DIR)/openmp/algorithms/%.o: $(SRC_DIR)/algorithms/%.c | $(OBJ_DIR)/openmp/algorithms $(DEP_DIR)/openmp/algorithms
+	@$(ECHO) "$(COLOR_BLUE)Compiling [openmp/algo]:$(COLOR_RESET) $<"
+	@$(CC) $(OPENMP_CFLAGS) -MMD -MP -MF $(DEP_DIR)/openmp/algorithms/$*.d -c $< -o $@
+
+$(OBJ_DIR)/openmp/utils/%.o: $(SRC_DIR)/utils/%.c | $(OBJ_DIR)/openmp/utils $(DEP_DIR)/openmp/utils
+	@$(ECHO) "$(COLOR_BLUE)Compiling [openmp/utils]:$(COLOR_RESET) $<"
+	@$(CC) $(OPENMP_CFLAGS) -MMD -MP -MF $(DEP_DIR)/openmp/utils/$*.d -c $< -o $@
+
+$(OBJ_DIR)/openmp/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)/openmp $(DEP_DIR)/openmp
+	@$(ECHO) "$(COLOR_BLUE)Compiling [openmp/main]:$(COLOR_RESET) $<"
+	@$(CC) $(OPENMP_CFLAGS) -MMD -MP -MF $(DEP_DIR)/openmp/$*.d -c $< -o $@
+
+# ============================================
+# Pthreads Implementation
+# ============================================
+
+$(PTHREADS_TARGET): $(PTHREADS_OBJS) | $(BIN_DIR)
+	@$(ECHO) "$(COLOR_GREEN)Linking [pthreads]:$(COLOR_RESET) $@"
+	@$(CC) $(PTHREADS_LDFLAGS) $(PTHREADS_OBJS) $(LDLIBS) -o $@
+
+$(OBJ_DIR)/pthreads/core/%.o: $(SRC_DIR)/core/%.c | $(OBJ_DIR)/pthreads/core $(DEP_DIR)/pthreads/core
+	@$(ECHO) "$(COLOR_BLUE)Compiling [pthreads/core]:$(COLOR_RESET) $<"
+	@$(CC) $(PTHREADS_CFLAGS) -MMD -MP -MF $(DEP_DIR)/pthreads/core/$*.d -c $< -o $@
+
+$(OBJ_DIR)/pthreads/algorithms/%.o: $(SRC_DIR)/algorithms/%.c | $(OBJ_DIR)/pthreads/algorithms $(DEP_DIR)/pthreads/algorithms
+	@$(ECHO) "$(COLOR_BLUE)Compiling [pthreads/algo]:$(COLOR_RESET) $<"
+	@$(CC) $(PTHREADS_CFLAGS) -MMD -MP -MF $(DEP_DIR)/pthreads/algorithms/$*.d -c $< -o $@
+
+$(OBJ_DIR)/pthreads/utils/%.o: $(SRC_DIR)/utils/%.c | $(OBJ_DIR)/pthreads/utils $(DEP_DIR)/pthreads/utils
+	@$(ECHO) "$(COLOR_BLUE)Compiling [pthreads/utils]:$(COLOR_RESET) $<"
+	@$(CC) $(PTHREADS_CFLAGS) -MMD -MP -MF $(DEP_DIR)/pthreads/utils/$*.d -c $< -o $@
+
+$(OBJ_DIR)/pthreads/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)/pthreads $(DEP_DIR)/pthreads
+	@$(ECHO) "$(COLOR_BLUE)Compiling [pthreads/main]:$(COLOR_RESET) $<"
+	@$(CC) $(PTHREADS_CFLAGS) -MMD -MP -MF $(DEP_DIR)/pthreads/$*.d -c $< -o $@
+
+# ============================================
+# Cilk Implementation
+# ============================================
+
+$(CILK_TARGET): $(CILK_OBJS) | $(BIN_DIR)
+	@$(ECHO) "$(COLOR_GREEN)Linking [cilk]:$(COLOR_RESET) $@"
+	@$(CLANG) $(CILK_LDFLAGS) $(CILK_OBJS) $(LDLIBS) -o $@
+
+$(OBJ_DIR)/cilk/core/%.o: $(SRC_DIR)/core/%.c | $(OBJ_DIR)/cilk/core $(DEP_DIR)/cilk/core
+	@$(ECHO) "$(COLOR_BLUE)Compiling [cilk/core]:$(COLOR_RESET) $<"
+	@$(CLANG) $(CILK_CFLAGS) -MMD -MP -MF $(DEP_DIR)/cilk/core/$*.d -c $< -o $@
+
+$(OBJ_DIR)/cilk/algorithms/%.o: $(SRC_DIR)/algorithms/%.c | $(OBJ_DIR)/cilk/algorithms $(DEP_DIR)/cilk/algorithms
+	@$(ECHO) "$(COLOR_BLUE)Compiling [cilk/algo]:$(COLOR_RESET) $<"
+	@$(CLANG) $(CILK_CFLAGS) -MMD -MP -MF $(DEP_DIR)/cilk/algorithms/$*.d -c $< -o $@
+
+$(OBJ_DIR)/cilk/utils/%.o: $(SRC_DIR)/utils/%.c | $(OBJ_DIR)/cilk/utils $(DEP_DIR)/cilk/utils
+	@$(ECHO) "$(COLOR_BLUE)Compiling [cilk/utils]:$(COLOR_RESET) $<"
+	@$(CLANG) $(CILK_CFLAGS) -MMD -MP -MF $(DEP_DIR)/cilk/utils/$*.d -c $< -o $@
+
+$(OBJ_DIR)/cilk/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)/cilk $(DEP_DIR)/cilk
+	@$(ECHO) "$(COLOR_BLUE)Compiling [cilk/main]:$(COLOR_RESET) $<"
+	@$(CLANG) $(CILK_CFLAGS) -MMD -MP -MF $(DEP_DIR)/cilk/$*.d -c $< -o $@
+
+# Include dependency files
+-include $(SEQUENTIAL_OBJS:.o=.d)
+-include $(OPENMP_OBJS:.o=.d)
+-include $(PTHREADS_OBJS:.o=.d)
+-include $(CILK_OBJS:.o=.d)
 
 # ============================================
 # Cleaning
@@ -113,7 +251,11 @@ clean:
 	@$(ECHO) "$(COLOR_GREEN)✓ Clean complete$(COLOR_RESET)"
 
 .PHONY: rebuild
-   rebuild: clean all
+rebuild: clean all
+
+# ============================================
+# Information and help
+# ============================================
 
 # ============================================
 # Project structure
@@ -130,44 +272,69 @@ tree:
 list-sources:
 	@$(ECHO) "$(COLOR_BLUE)Source files:$(COLOR_RESET)"
 	@$(ECHO) "$(COLOR_MAGENTA)Core:$(COLOR_RESET)"; \
-	for f in $(CORE_SRCS); do echo "  $$f"; done
-	@$(ECHO) "$(COLOR_MAGENTA)Algorithms:$(COLOR_RESET)"; \
-	for f in $(ALGO_SRCS); do echo "  $$f"; done
+	for f in $(CORE_SRCS); do echo "  $f"; done
 	@$(ECHO) "$(COLOR_MAGENTA)Utils:$(COLOR_RESET)"; \
-	for f in $(UTILS_SRCS); do echo "  $$f"; done
+	for f in $(UTILS_SRCS); do echo "  $f"; done
 	@$(ECHO) "$(COLOR_MAGENTA)Main:$(COLOR_RESET)"; \
 	echo "  $(MAIN_SRC)"
-
-# ============================================
-# Information and help
-# ============================================
+	@$(ECHO) "$(COLOR_MAGENTA)Algorithms:$(COLOR_RESET)"
+	@test -f $(SEQUENTIAL_ALGO) && echo "  $(SEQUENTIAL_ALGO)" || echo "  $(SEQUENTIAL_ALGO) (missing)"
+	@test -f $(OPENMP_ALGO) && echo "  $(OPENMP_ALGO)" || echo "  $(OPENMP_ALGO) (missing)"
+	@test -f $(PTHREADS_ALGO) && echo "  $(PTHREADS_ALGO)" || echo "  $(PTHREADS_ALGO) (missing)"
+	@test -f $(CILK_ALGO) && echo "  $(CILK_ALGO)" || echo "  $(CILK_ALGO) (missing)"
 
 .PHONY: info
 info:
 	@$(ECHO) "$(COLOR_BLUE)════════════════════════════════════════$(COLOR_RESET)"
 	@$(ECHO) "$(COLOR_GREEN)Build Configuration$(COLOR_RESET)"
 	@$(ECHO) "$(COLOR_BLUE)════════════════════════════════════════$(COLOR_RESET)"
-	@echo "  Project:    $(PROJECT)"
-	@echo "  Compiler:   $(CC)"
-	@echo "  CFLAGS:     $(CFLAGS)"
-	@echo "  LDFLAGS:    $(LDFLAGS)"
-	@echo "  LDLIBS:     $(LDLIBS)"
+	@echo "  Project:      $(PROJECT)"
+	@echo "  Compilers:    $(CC), $(CLANG)"
 	@echo ""
-	@$(ECHO) "$(COLOR_BLUE)Source Organization:$(COLOR_RESET)"
-	@echo "  Core:       $(words $(CORE_SRCS)) files"
-	@echo "  Algorithms: $(words $(ALGO_SRCS)) files"
-	@echo "  Utils:      $(words $(UTILS_SRCS)) files"
-	@echo "  Total:      $(words $(SRCS)) files"
+	@$(ECHO) "$(COLOR_BLUE)Compiler Flags:$(COLOR_RESET)"
+	@echo "  Base:         $(BASE_CFLAGS)"
+	@echo "  Sequential:   $(SEQUENTIAL_CFLAGS)"
+	@echo "  OpenMP:       $(OPENMP_CFLAGS)"
+	@echo "  Pthreads:     $(PTHREADS_CFLAGS)"
+	@echo "  Cilk:         $(CILK_CFLAGS)"
 	@echo ""
-	@$(ECHO) "$(COLOR_BLUE)Build Artifacts:$(COLOR_RESET)"
-	@echo "  Objects:    $(words $(OBJS)) files"
-	@echo "  Target:     $(TARGET)"
+	@$(ECHO) "$(COLOR_BLUE)Linker Flags:$(COLOR_RESET)"
+	@echo "  Sequential:   $(SEQUENTIAL_LDFLAGS)"
+	@echo "  OpenMP:       $(OPENMP_LDFLAGS)"
+	@echo "  Pthreads:     $(PTHREADS_LDFLAGS)"
+	@echo "  Cilk:         $(CILK_LDFLAGS)"
+	@echo "  Libraries:    $(LDLIBS)"
+	@echo ""
+	@$(ECHO) "$(COLOR_BLUE)Implementations:$(COLOR_RESET)"
+	@echo "  Sequential:   $(SEQUENTIAL_TARGET)"
+	@echo "  OpenMP:       $(OPENMP_TARGET)"
+	@echo "  Pthreads:     $(PTHREADS_TARGET)"
+	@echo "  Cilk:         $(CILK_TARGET)"
+	@echo ""
+	@$(ECHO) "$(COLOR_BLUE)Source Files:$(COLOR_RESET)"
+	@echo "  Core:         $(words $(CORE_SRCS)) files"
+	@echo "  Utils:        $(words $(UTILS_SRCS)) files"
+	@echo "  Main:         1 file"
+	@echo "  Total:        $(words $(CORE_SRCS) $(UTILS_SRCS) $(MAIN_SRC)) common files"
+
+.PHONY: list-binaries
+list-binaries:
+	@$(ECHO) "$(COLOR_BLUE)Built executables:$(COLOR_RESET)"
+	@for bin in $(ALL_TARGETS); do \
+		if [ -f $bin ]; then \
+			$(ECHO) "  $(COLOR_GREEN)✓$(COLOR_RESET) $bin"; \
+		else \
+			$(ECHO) "  $(COLOR_YELLOW)✗$(COLOR_RESET) $bin (not built)"; \
+		fi \
+	done
 
 .PHONY: check-deps
 check-deps:
 	@$(ECHO) "$(COLOR_BLUE)Checking dependencies...$(COLOR_RESET)"
 	@which $(CC) > /dev/null || ($(ECHO) "$(COLOR_YELLOW)✗ gcc not found$(COLOR_RESET)" && exit 1)
 	@$(ECHO) "  $(COLOR_GREEN)✓$(COLOR_RESET) gcc found: $(shell $(CC) --version | head -n1)"
+	@which $(CLANG) > /dev/null || ($(ECHO) "$(COLOR_YELLOW)✗ clang not found$(COLOR_RESET)" && exit 1)
+	@$(ECHO) "  $(COLOR_GREEN)✓$(COLOR_RESET) clang found: $(shell $(CLANG) --version | head -n1)"
 	@gcc -pthread -E - </dev/null >/dev/null 2>&1 || ($(ECHO) "$(COLOR_YELLOW)✗ pthreads not found$(COLOR_RESET)" && exit 1)
 	@$(ECHO) "  $(COLOR_GREEN)✓$(COLOR_RESET) pthreads found"
 	@gcc -fopenmp -dM -E - < /dev/null | grep -i openmp > /dev/null || ($(ECHO) "$(COLOR_YELLOW)✗ openmp not found$(COLOR_RESET)" && exit 1)
@@ -188,23 +355,34 @@ help:
 	@$(ECHO) "$(COLOR_GREEN)════════════════════════════════════════$(COLOR_RESET)"
 	@echo ""
 	@$(ECHO) "$(COLOR_BLUE)Building:$(COLOR_RESET)"
-	@$(ECHO) "  $(COLOR_MAGENTA)all$(COLOR_RESET)           - Build the project (default)"
+	@$(ECHO) "  $(COLOR_MAGENTA)all$(COLOR_RESET)           - Build all implementations (default)"
+	@$(ECHO) "  $(COLOR_MAGENTA)sequential$(COLOR_RESET)    - Build only sequential version"
+	@$(ECHO) "  $(COLOR_MAGENTA)openmp$(COLOR_RESET)        - Build only OpenMP version"
+	@$(ECHO) "  $(COLOR_MAGENTA)pthreads$(COLOR_RESET)      - Build only Pthreads version"
+	@$(ECHO) "  $(COLOR_MAGENTA)cilk$(COLOR_RESET)          - Build only Cilk version"
 	@$(ECHO) "  $(COLOR_MAGENTA)clean$(COLOR_RESET)         - Remove build artifacts"
-	@$(ECHO) "  $(COLOR_MAGENTA)rebuild$(COLOR_RESET)       - Build from scratch"
+	@$(ECHO) "  $(COLOR_MAGENTA)rebuild$(COLOR_RESET)       - Clean and build all"
 	@echo ""
 	@$(ECHO) "$(COLOR_BLUE)Information:$(COLOR_RESET)"
 	@$(ECHO) "  $(COLOR_MAGENTA)info$(COLOR_RESET)          - Show build configuration"
 	@$(ECHO) "  $(COLOR_MAGENTA)tree$(COLOR_RESET)          - Show project structure"
 	@$(ECHO) "  $(COLOR_MAGENTA)list-sources$(COLOR_RESET)  - List all source files by category"
+	@$(ECHO) "  $(COLOR_MAGENTA)list-binaries$(COLOR_RESET) - List all executables and their status"
 	@$(ECHO) "  $(COLOR_MAGENTA)check-deps$(COLOR_RESET)    - Verify dependencies are installed"
 	@$(ECHO) "  $(COLOR_MAGENTA)help$(COLOR_RESET)          - Show this message"
 	@echo ""
+	@$(ECHO) "$(COLOR_BLUE)Examples:$(COLOR_RESET)"
+	@$(ECHO) "  make                    # Build all versions"
+	@$(ECHO) "  make sequential openmp  # Build specific versions"
+	@$(ECHO) "  make clean all          # Clean build"
+	@$(ECHO) "  make check-deps         # Verify all dependencies"
+	@echo ""
 
-# Default target when no arguments given
 .DEFAULT_GOAL := all
 
 # ============================================
 # Phony targets (prevent conflicts with files)
 # ============================================
 
-.PHONY: all clean rebuild tree list-sources info check-deps help
+.PHONY: all clean rebuild tree list-sources info check-deps help \
+        sequential openmp pthreads cilk list-binaries
