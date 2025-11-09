@@ -10,8 +10,8 @@
 PROJECT := connected_components
 
 # Compilers
-CC := gcc
-CLANG := clang
+export CC := gcc
+export CLANG := clang
 
 # Base compiler flags
 BASE_CFLAGS := -Wall -Wextra -Wpedantic -std=c11 -O3 -march=native
@@ -21,13 +21,13 @@ BASE_CFLAGS += -Isrc/core -Isrc/algorithms -Isrc/utils
 SEQUENTIAL_CFLAGS := $(BASE_CFLAGS) -DUSE_SEQUENTIAL
 OPENMP_CFLAGS := $(BASE_CFLAGS) -fopenmp -DUSE_OPENMP
 PTHREADS_CFLAGS := $(BASE_CFLAGS) -pthread -DUSE_PTHREADS
-CILK_CFLAGS := $(BASE_CFLAGS) -fopencilk -DUSE_CILK
+CILK_CFLAGS := $(BASE_CFLAGS) -fopencilk -DUSE_CILK -I/usr/local/opencilk/include
 
 # Linker flags
 SEQUENTIAL_LDFLAGS :=
 OPENMP_LDFLAGS := -fopenmp
 PTHREADS_LDFLAGS := -pthread
-CILK_LDFLAGS := -fopencilk
+CILK_LDFLAGS := -fopencilk -L/usr/local/opencilk/lib
 
 # Common libraries
 LDLIBS := -lmatio -lm
@@ -377,6 +377,12 @@ help:
 	@$(ECHO) "  make check-deps         # Verify all dependencies"
 	@echo ""
 
+.PHONY: compile_commands
+compile_commands:
+	@echo "Generating compile_commands.json with Bear..."
+	@bear -- make all
+	@echo "✓ compile_commands.json generated!"
+
 .DEFAULT_GOAL := all
 
 # ============================================
@@ -384,4 +390,4 @@ help:
 # ============================================
 
 .PHONY: all clean rebuild tree list-sources info check-deps help \
-        sequential openmp pthreads cilk list-binaries
+        sequential openmp pthreads cilk list-binaries compile_commands

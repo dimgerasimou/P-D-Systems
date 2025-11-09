@@ -48,6 +48,4 @@ void csc_free_matrix(CSCBinaryMatrix *m);
  */
 void csc_print_matrix(CSCBinaryMatrix *m);
 
-
-
 #endif // MATRIX_H
