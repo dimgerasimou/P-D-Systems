@@ -1,15 +1,47 @@
+/**
+ * @file matrix.c
+ * @brief Implementation of CSC (Compressed Sparse Column) binary matrix utilities.
+ *
+ * Provides functions to load a sparse binary matrix from a MAT file,
+ * free allocated memory, and print the matrix in coordinate format.
+ */
+
+#include <errno.h>
+#include <math.h>
+#include <matio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <math.h>
 
-#include <matio.h>
 #include "matrix.h"
-#include "../utils/error.h"
+#include "error.h"
 
+/* ------------------------------------------------------------------------- */
+/*                            Static Helper Functions                        */
+/* ------------------------------------------------------------------------- */
 
+/**
+ * @brief Count the number of digits in an integer.
+ *
+ * Used for formatting output in `csc_print_matrix()`.
+ *
+ * @param n The integer to count digits for.
+ * @return Number of digits in n.
+ */
+static int num_digits(int n) {
+    if (n == 0) return 1;
+    if (n < 0) n = -n;
 
+    return (int)log10(n) + 1;
+}
+
+/* ------------------------------------------------------------------------- */
+/*                           Public API Functions                             */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * @copydoc csc_load_matrix()
+ */
 CSCBinaryMatrix *csc_load_matrix(const char *filename,
                                     const char *matrix_name,
                                     const char *field_name)
@@ -86,6 +118,9 @@ CSCBinaryMatrix *csc_load_matrix(const char *filename,
     return m;
 }
 
+/**
+ * @copydoc csc_free_matrix()
+ */
 void csc_free_matrix(CSCBinaryMatrix *m) {
     if (!m)
         return;
@@ -104,13 +139,9 @@ void csc_free_matrix(CSCBinaryMatrix *m) {
     m = NULL;
 }
 
-static int num_digits(int n) {
-    if (n == 0) return 1;
-    if (n < 0) n = -n;
-
-    return (int)log10(n) + 1;
-}
-
+/**
+ * @copydoc csc_print_matrix()
+ */
 void csc_print_matrix(CSCBinaryMatrix *m) {
     int di = 0;
     int dj = 0;

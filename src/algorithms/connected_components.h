@@ -1,3 +1,17 @@
+/**
+ * @file connected_components.h
+ * @brief Connected components counting algorithms for sparse binary matrices.
+ *
+ * Provides sequential and parallel implementations of label propagation
+ * algorithms to count connected components in a sparse binary matrix (CSC format).
+ *
+ * Implementations:
+ * - Sequential
+ * - OpenMP
+ * - Pthreads
+ * - OpenCilk
+ */
+
 #ifndef CONNECTED_COMPONENTS_H
 #define CONNECTED_COMPONENTS_H
 

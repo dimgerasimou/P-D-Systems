@@ -1,12 +1,31 @@
+/**
+ * @file main.c
+ * @brief Entry point for the connected components benchmark program.
+ *
+ * This implementation was developed for the purposes of the class:
+ * Parallel and Distributed Systems,
+ * Department of Electrical and Computer Engineering,
+ * Aristotle University of Thessaloniki.
+ *
+ * Loads a sparse binary matrix in CSC format, based on the selected
+ * connected components implementation (sequential or parallel),
+ * runs a benchmark, and prints the statistics. The implementations
+ * are selected through a series of definitions (through compiler flags).
+ *
+ * Supported implementations:
+ * - USE_SEQUENTIAL
+ * - USE_OPENMP
+ * - USE_PTHREADS
+ * - USE_CILK
+ *
+ * Usage: ./connected_components [-t n_threads] [-n n_trials] ./data_filepath
+ */
+
 #include "connected_components.h"
 #include "matrix.h"
 #include "error.h"
 #include "benchmark.h"
-
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
+#include "args.h"
 
 #if defined(USE_OPENMP)
     #define IMPLEMENTATION_NAME "OpenMP"
@@ -22,115 +41,40 @@
 
 const char *program_name = "connected_components";
 
-static int
-isuint(const char *s)
+int
+main(int argc, char *argv[])
 {
-    if (!s || s[0] == '\0')
-        return 0;
-
-    for (const char *ptr = s; *ptr != '\0'; ptr++) {
-        if (!(*ptr >= '0' && *ptr <= '9'))
-            return 0;
-    }
-
-    return 1;
-}
-
-static void
-usage(void) {
-    printf("./%s [-t n_threads] [-n n_trials] ./data_filepath\n", program_name);
-}
-
-static int parseargs(int argc, char *argv[], int *n_threads, int *n_trials, char **filepath) {
-    *n_threads = 8;
-    *n_trials = 1;
-    *filepath = NULL;
-
-    for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "-t")) {
-            if (i + 1 >= argc) {
-                print_error(__func__, "missing argument for -t", 0);
-                usage();
-                return 1;
-            }
-            i++;
-            if (!isuint(argv[i])) {
-                print_error(__func__, "invalid argument type for -t", 0);
-                usage();
-                return 1;
-            }
-            *n_threads = atoi(argv[i]);
-        }
-        else if (!strcmp(argv[i], "-n")) {
-            if (i + 1 >= argc) {
-                print_error(__func__, "missing argument for -n", 0);
-                usage();
-                return 1;
-            }
-            i++;
-            if (!isuint(argv[i])) {
-                print_error(__func__, "invalid argument type for -n", 0);
-                usage();
-                return 1;
-            }
-            *n_trials = atoi(argv[i]);
-        }
-        else if (!strcmp(argv[i], "-h")) {
-            usage();
-            return -1;
-        }
-        else {
-            if (*filepath != NULL) {
-                print_error(__func__, "multiple file paths specified", 0);
-                usage();
-                return 1;
-            }
-            if (access(argv[i], R_OK) != 0) {
-                char err[256];
-                snprintf(err, sizeof(err), "cannot access file: \"%s\"", argv[i]);
-                print_error(__func__, err, 0);
-                usage();
-                return 1;
-            }
-            *filepath = argv[i];
-        }
-    }
-
-    if (*filepath == NULL) {
-        print_error(__func__, "no input file specified", 0);
-        usage();
-        return 1;
-    }
-
-    return 0;
-}
-
-int main(int argc, char *argv[]) {
-
     CSCBinaryMatrix *matrix;
     Benchmark *benchmark = NULL;
     char *filepath;
-    int n_trials = 1;
-    int n_threads = 0;
+    int n_trials = 3;
+    int n_threads = 8;
     int ret = 0;
     int (*cc_func)(const CSCBinaryMatrix*, const int);
 
+    /* Initialize program name for error reporting */
     set_program_name(argv[0]);
 
+    /* Parse command line arguments */
     if (parseargs(argc, argv, &n_threads, &n_trials, &filepath)) {
         return 1;
     }
     
+    /* Load the sparse matrix */
     matrix = csc_load_matrix(filepath, "Problem", "A");
     if (!matrix)
         return 1;
 
+    /* Initialize benchmarking structure */
     benchmark = benchmark_init(IMPLEMENTATION_NAME, filepath, n_trials, n_threads, matrix);
     if (!benchmark) {
         csc_free_matrix(matrix);
         return 1;
     }
 
+    /* Implementation is selected by the preproccesor.
+     * (definitions made through compiler flags)
+     */
     #if defined(USE_OPENMP)
     cc_func = cc_openmp;
     #elif defined(USE_PTHREADS)
@@ -141,11 +85,14 @@ int main(int argc, char *argv[]) {
     cc_func = cc_sequential;
     #endif
 
+    /* Actually run the benchmark */
     ret = benchmark_cc(cc_func, matrix, benchmark);
 
     benchmark_print(benchmark);
 
+    /* Cleanup */
     benchmark_free(benchmark);
     csc_free_matrix(matrix);
+    
     return ret;
 }
