@@ -4,7 +4,7 @@
 <p align="center">
   <em>Department of Electrical and Computer Engineering,</em><br>
   Aristotle University of Thessaloniki</em><br>
-  <strong>Homework #1 — Parallel and Distributed Systems</strong>
+  <strong>Homework #1</strong>
 </p>
 
 <p align="center">
