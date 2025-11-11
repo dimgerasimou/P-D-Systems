@@ -129,7 +129,7 @@ bin/connected_components_pthreads -t <threads> -n <trials> path/to/matrix.mat
 **Arguments:**
 
 * `-t <threads>` — number of threads (default: 8)
-* `-n <trials>` — number of trials (default: 10)
+* `-n <trials>` — number of trials (default: 3)
 
 **Example:**
 
