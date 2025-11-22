@@ -407,7 +407,7 @@ benchmark: all
 		$(ECHO) "Usage: make benchmark MATRIX=path/to/matrix.mat [THREADS=8] [TRIALS=10] [VARIANT=0]"; \
 		exit 1; \
 	fi
-	@$(RUNNER_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),10) -v $(if $(VARIANT),$(VARIANT),0) $(MATRIX)
+	@CILK_NWORKERS=$(if $(THREADS),$(THREADS),8) $(RUNNER_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),10) -v $(if $(VARIANT),$(VARIANT),0) $(MATRIX)
 
 .PHONY: benchmark-save
 benchmark-save: all
@@ -418,7 +418,7 @@ benchmark-save: all
 		exit 1; \
 	fi
 	@mkdir -p benchmarks
-	@$(RUNNER_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),10) -v $(if $(VARIANT),$(VARIANT),0) $(MATRIX) > benchmarks/benchmark-result-$(shell date +%Y%m%d_%H%M%S).json
+	@CILK_NWORKERS=$(if $(THREADS),$(THREADS),8) $(RUNNER_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),10) -v $(if $(VARIANT),$(VARIANT),0) $(MATRIX) > benchmarks/benchmark-result-$(shell date +%Y%m%d_%H%M%S).json
 
 # Compare both variants side-by-side
 .PHONY: benchmark-compare
@@ -432,9 +432,9 @@ benchmark-compare: all
 	$(eval COMPARISON_PATH := benchmarks/comparison-$(shell date +%Y%m%d_%H%M%S))
 	@mkdir -p $(COMPARISON_PATH)
 	@$(ECHO) "$(COLOR_CYAN)Running variant 0 (standard)...$(COLOR_RESET)"
-	@$(RUNNER_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),10) -v 0 $(MATRIX) > $(COMPARISON_PATH)/variant0.json
+	@CILK_NWORKERS=$(if $(THREADS),$(THREADS),8) $(RUNNER_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),10) -v 0 $(MATRIX) > $(COMPARISON_PATH)/variant0.json
 	@$(ECHO) "$(COLOR_CYAN)Running variant 1 (optimized)...$(COLOR_RESET)"
-	@$(RUNNER_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),10) -v 1 $(MATRIX) > $(COMPARISON_PATH)/variant1.json
+	@CILK_NWORKERS=$(if $(THREADS),$(THREADS),8) $(RUNNER_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),10) -v 1 $(MATRIX) > $(COMPARISON_PATH)/variant1.json
 	@$(ECHO) "$(COLOR_GREEN)✓ Comparison complete. Results saved to $(COMPARISON_PATH)$(COLOR_RESET)"
 
 # Run individual implementation with variant
@@ -473,7 +473,7 @@ run-cilk: cilk
 		$(ECHO) "Usage: make run-cilk MATRIX=path/to/matrix.mat [THREADS=8] [TRIALS=3] [VARIANT=0]"; \
 		exit 1; \
 	fi
-	@$(CILK_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),3) -v $(if $(VARIANT),$(VARIANT),0) $(MATRIX)
+	@CILK_NWORKERS=$(if $(THREADS),$(THREADS),8) $(CILK_TARGET) -t $(if $(THREADS),$(THREADS),8) -n $(if $(TRIALS),$(TRIALS),3) -v $(if $(VARIANT),$(VARIANT),0) $(MATRIX)
 
 # Quick test with default settings
 .PHONY: test
@@ -484,7 +484,7 @@ test: all
 		$(ECHO) "Usage: make test MATRIX=path/to/matrix.mat [VARIANT=0]"; \
 		exit 1; \
 	fi
-	@$(RUNNER_TARGET) -t 4 -n 1 -v $(if $(VARIANT),$(VARIANT),0) $(MATRIX)
+	@CILK_NWORKERS=4 $(RUNNER_TARGET) -t 4 -n 1 -v $(if $(VARIANT),$(VARIANT),0) $(MATRIX)
 
 .PHONY: help
 help:

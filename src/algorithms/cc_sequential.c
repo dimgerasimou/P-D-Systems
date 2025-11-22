@@ -1,12 +1,12 @@
 /**
  * @file cc_sequential.c
- * @brief Sequential algorithms for computing connected components.
+ * @brief Optimized sequential algorithms for computing connected components.
  *
  * This module implements two sequential algorithms for finding connected
  * components in an undirected graph represented as a sparse binary matrix:
  *
  * - Label Propagation (variant 0): Iteratively propagates minimum labels
- *   until convergence. Simple but slow.
+ *   until convergence with early termination optimization.
  *
  * - Union-Find (variant 1): Uses disjoint-set data structure with path
  *   halving optimization. Generally faster and more scalable.
@@ -131,58 +131,17 @@ cc_union_find(const CSCBinaryMatrix *matrix)
 /* ========================================================================== */
 
 /**
- * @brief Swaps labels to propagate the minimum value.
- *
- * If the two nodes have different labels, both are updated to the minimum
- * of the two values.
- *
- * @param label Array of node labels
- * @param i First node
- * @param j Second node
- * @return 1 if labels were changed, 0 if already equal
- */
-static inline int
-swap_min(uint32_t *label, uint32_t i, uint32_t j)
-{
-	if (label[i] == label[j])
-		return 0;
-	
-	if (label[i] < label[j]) {
-		label[j] = label[i];
-	} else {
-		label[i] = label[j];
-	}
-	return 1;
-}
-
-/**
- * @brief Comparison function for qsort on uint32_t arrays.
- *
- * @param a Pointer to first element
- * @param b Pointer to second element
- * @return -1 if a < b, 0 if a == b, 1 if a > b
- */
-static int
-cmp_uint32(const void *a, const void *b)
-{
-	uint32_t x = *(uint32_t*)a;
-	uint32_t y = *(uint32_t*)b;
-	if (x < y) return -1;
-	if (x > y) return 1;
-	return 0;
-}
-
-/**
- * @brief Computes connected components using label propagation.
+ * @brief Computes connected components using optimized label propagation.
  *
  * Algorithm steps:
  * 1. Initialize each node with its own index as label
  * 2. Iterate over all edges, propagating minimum labels
- * 3. Repeat until no labels change (convergence)
- * 4. Sort labels and count unique values
+ * 3. Use cached column label to reduce redundant reads
+ * 4. Repeat until no labels change (convergence)
+ * 5. Count unique components using bitmap
  *
- * This method is simple but can be slow on graphs with long chains or
- * deep structures, as it may require many iterations to converge.
+ * Optimization: Cache the column label in the inner loop to avoid
+ * redundant memory reads when processing multiple edges in the same column.
  *
  * @param matrix Sparse binary matrix in CSC format representing graph
  * @return Number of connected components, or -1 on error
@@ -207,30 +166,52 @@ cc_label_propegation(const CSCBinaryMatrix *matrix)
 		
 		// Process all edges, propagating minimum labels
 		for (size_t i = 0; i < matrix->ncols; i++) {
+			uint32_t col_label = label[i];  // Cache column label
+			
 			for (uint32_t j = matrix->col_ptr[i]; j < matrix->col_ptr[i+1]; j++) {
-				uint32_t r, c;
-				c = i;
-				r = matrix->row_idx[j];
+				uint32_t row = matrix->row_idx[j];
+				uint32_t row_label = label[row];
 				
-				if (swap_min(label, c, r)) {
-					finished = 0;  // Labels changed, need another iteration
+				if (col_label != row_label) {
+					uint32_t minval = col_label < row_label ? col_label : row_label;
+					
+					// Update column label if needed (and cache it)
+					if (col_label > minval) {
+						label[i] = col_label = minval;
+						finished = 0;
+					}
+					
+					// Update row label if needed
+					if (row_label > minval) {
+						label[row] = minval;
+						finished = 0;
+					}
 				}
 			}
 		}
 	} while (!finished);
-	
-	// Sort labels to group identical values
-	qsort(label, matrix->nrows, sizeof(uint32_t), cmp_uint32);
-	
-	// Count unique labels (each unique label is one component)
-	uint32_t uniqueCount = 0;
-	for (size_t i = 0; i < matrix->nrows; i++) {
-		if (i == 0 || label[i] != label[i-1])
-			uniqueCount++;
+
+	// Count unique components using a bitmap
+	size_t bitmap_size = (matrix->nrows + 63) / 64;
+	uint64_t *bitmap = calloc(bitmap_size, sizeof(uint64_t));
+	if (!bitmap) {
+		free(label);
+		return -1;
+	}
+
+	for (uint32_t i = 0; i < matrix->nrows; i++) {
+		uint32_t val = label[i];
+		bitmap[val >> 6] |= (1ULL << (val & 63));
+	}
+
+	uint32_t count = 0;
+	for (size_t i = 0; i < bitmap_size; i++) {
+		count += __builtin_popcountll(bitmap[i]);
 	}
 	
 	free(label);
-	return (int)uniqueCount;
+	free(bitmap);
+	return (int)count;
 }
 
 /* ========================================================================== */
@@ -246,7 +227,7 @@ cc_label_propegation(const CSCBinaryMatrix *matrix)
  *
  * Supported variants:
  *   0: Label propagation (simple, slower)
- *   1: Union-find (recommended, faster)
+ *   1: Union-find (more complex, faster)
  *
  * @param matrix Sparse binary matrix in CSC format
  * @param n_threads Unused (for API compatibility with parallel version)
