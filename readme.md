@@ -17,11 +17,11 @@
 
 ## Overview
 
-This project implements and benchmarks the **connected components algorithm** for sparse graphs using four different parallel programming paradigms. It provides comprehensive performance analysis including execution time, throughput, speedup, and efficiency metrics across different parallelization strategies.
+This project implements and benchmarks **connected components algorithms** for sparse graphs using different parallel programming paradigms. It provides comprehensive performance analysis including execution time, throughput, speedup, and efficiency metrics across different parallelization strategies.
 
 ### Key Features
 
-- **Four parallel implementations** of the connected components algorithm
+- **Eight implementations** of the connected components algorithm
 - **Automated benchmarking** with statistical analysis (mean, median, std dev, min/max)
 - **Performance metrics**: speedup, efficiency, throughput (edges/sec)
 - **Memory tracking**: peak memory usage for each implementation
@@ -30,12 +30,17 @@ This project implements and benchmarks the **connected components algorithm** fo
 
 ### Implementations
 
-| Implementation | Compiler | Description |
-|----------------|----------|-------------|
-| Sequential     | `gcc`    | Single-threaded reference implementation |
-| OpenMP         | `gcc`    | Compiler-directive based parallelism |
-| Pthreads       | `gcc`    | Manual thread management |
-| OpenCilk       | `clang`  | Work-stealing scheduler with cilk_spawn/cilk_sync |
+These are the algorithm types implemented:
+
+- **Label Propagation**: Iteratively propagates minimum labels until convergence with early termination optimization. Uses bitmaps for counting the individual components.
+- **Union-Find**: Uses disjoint-set data structure with path   halving optimization. Generally faster and more scalable.
+
+Both algorithm types are implemented **using three parallelization methods and one sequential**, as follows:
+- **Sequential**
+- **OpenMP**
+- **POSIX Threads**
+- **OpenCilk**
+
 
 ---
 
